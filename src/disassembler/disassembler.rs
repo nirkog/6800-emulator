@@ -75,10 +75,10 @@ fn match_byte_to_opcode_info(byte: u8) -> Result<OpcodeInfo, DisassemblyError> {
 fn disassemble_operands(opcode_info: &OpcodeInfo, data: &[u8]) -> Vec<OperandInfo> {
     let operands = match opcode_info.opcode {
         Opcode::Nop => vec![],
-        Opcode::SubstractAImmediate => vec![OperandInfo { operand_type: OperandType::AccumulatorA, operand_value: None }, OperandInfo { operand_type: OperandType::Immediate8, operand_value: Some(data[1]) }],
-        Opcode::SubstractADirect => vec![OperandInfo { operand_type: OperandType::AccumulatorA, operand_value: None }, OperandInfo { operand_type: OperandType::Immediate8, operand_value: Some(data[1]) }],
-        Opcode::SubstractAIndexed => vec![OperandInfo { operand_type: OperandType::AccumulatorA, operand_value: None }, OperandInfo { operand_type: OperandType::Immediate8, operand_value: Some(data[1]), OperandInfo { operand_type: OperandType::IndexRegister, operand_value: None }],
-        Opcode::SubstractAExtended => vec![OperandInfo { operand_type: OperandType::AccumulatorA, operand_value: None }, OperandInfo { operand_type: OperandType::Immediate16, operand_value: Some(data[1]) }],
+        Opcode::SubstractAImmediate => vec![OperandInfo { operand_type: OperandType::AccumulatorA, operand_value: None }, OperandInfo { operand_type: OperandType::Immediate8, operand_value: Some(data[1] as u16) }],
+        Opcode::SubstractADirect => vec![OperandInfo { operand_type: OperandType::AccumulatorA, operand_value: None }, OperandInfo { operand_type: OperandType::Immediate8, operand_value: Some(data[1] as u16) }],
+        Opcode::SubstractAIndexed => vec![OperandInfo { operand_type: OperandType::AccumulatorA, operand_value: None }, OperandInfo { operand_type: OperandType::Immediate8, operand_value: Some(data[1] as u16) }, OperandInfo { operand_type: OperandType::IndexRegister, operand_value: None }],
+        Opcode::SubstractAExtended => vec![OperandInfo { operand_type: OperandType::AccumulatorA, operand_value: None }, OperandInfo { operand_type: OperandType::Immediate16, operand_value: Some((((data[1] as u16) << 8) | (data[2] as u16)) as u16) }],
     };
 
     operands
