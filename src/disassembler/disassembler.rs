@@ -1,4 +1,5 @@
 /// All 6800 opcodes
+#[derive(Debug, PartialEq, Eq)]
 pub enum Opcode {
     Nop,
     SubstractAImmediate,
@@ -8,6 +9,7 @@ pub enum Opcode {
 }
 
 /// All possible operand types
+#[derive(Debug, PartialEq, Eq)]
 pub enum OperandType {
     AccumulatorA,
     AccumulatorB,
@@ -17,6 +19,7 @@ pub enum OperandType {
 }
 
 /// Opcode groups that group together opcodes with different codes but similar meaning
+#[derive(Debug, PartialEq, Eq)]
 pub enum OpcodeGroup {
     Substract,
     NoGroup
@@ -24,25 +27,26 @@ pub enum OpcodeGroup {
 
 /// Contains basic information about an opcode
 pub struct OpcodeInfo {
-    opcode: Opcode,
-    group: OpcodeGroup,
-    length: u8,
-    cycles: u8
+    pub opcode: Opcode,
+    pub group: OpcodeGroup,
+    pub instruction_length: u8,
+    pub cycles: u8
 }
 
 /// Contains the relevant information about an operand
 pub struct OperandInfo {
-    operand_type: OperandType,
-    operand_value: Option<u16>
+    pub operand_type: OperandType,
+    pub operand_value: Option<u16>
 }
 
 /// Containts the disassembled information about an instruction
 pub struct InstructionInfo {
-    opcode_info: OpcodeInfo,
-    operands: Vec<OperandInfo>
+    pub opcode_info: OpcodeInfo,
+    pub operands: Vec<OperandInfo>
 }
 
 /// Errors that can arise during disassembly
+#[derive(Debug, PartialEq, Eq)]
 pub enum DisassemblyError {
     InvalidOpcodeByte,
     MachineCodeTooShort
@@ -50,22 +54,16 @@ pub enum DisassemblyError {
 
 /// Match a byte to its disassembled opcode
 ///
-/// # Example
-/// ```
-/// let byte: u8 = 1; // Nop opcode
-/// let opcode_info = match_byte_to_opcode_info(byte); // Should return Opcode::Nop, OpcodeGroup::NoGroup
-/// ```
-///
 /// # Errors
 /// The function might return an InvalidOpcodeByte error if an invalid byte was given (
 /// A byte that does not correspond to any opcode).
 fn match_byte_to_opcode_info(byte: u8) -> Result<OpcodeInfo, DisassemblyError> {
     let opcode_info: OpcodeInfo = match byte {
-        0x01 => OpcodeInfo { opcode: Opcode::Nop, group: OpcodeGroup::NoGroup, length: 1, cycles: 1 },
-        0x80 => OpcodeInfo { opcode: Opcode::SubstractAImmediate, group: OpcodeGroup::Substract, length: 2, cycles: 2 },
-        0x90 => OpcodeInfo { opcode: Opcode::SubstractADirect, group: OpcodeGroup::Substract, length: 2, cycles: 3 },
-        0xA0 => OpcodeInfo { opcode: Opcode::SubstractAIndexed, group: OpcodeGroup::Substract, length: 2, cycles: 5 },
-        0xB0 => OpcodeInfo { opcode: Opcode::SubstractAExtended, group: OpcodeGroup::Substract, length: 3, cycles: 4 },
+        0x01 => OpcodeInfo { opcode: Opcode::Nop, group: OpcodeGroup::NoGroup, instruction_length: 1, cycles: 1 },
+        0x80 => OpcodeInfo { opcode: Opcode::SubstractAImmediate, group: OpcodeGroup::Substract, instruction_length: 2, cycles: 2 },
+        0x90 => OpcodeInfo { opcode: Opcode::SubstractADirect, group: OpcodeGroup::Substract, instruction_length: 2, cycles: 3 },
+        0xA0 => OpcodeInfo { opcode: Opcode::SubstractAIndexed, group: OpcodeGroup::Substract, instruction_length: 2, cycles: 5 },
+        0xB0 => OpcodeInfo { opcode: Opcode::SubstractAExtended, group: OpcodeGroup::Substract, instruction_length: 3, cycles: 4 },
         _ => return Err(DisassemblyError::InvalidOpcodeByte)
     };
 
@@ -85,12 +83,7 @@ fn disassemble_operands(opcode_info: &OpcodeInfo, data: &[u8]) -> Vec<OperandInf
 }
 
 /// Disassemble the next instruction in a byte stream
-///
-/// # Example
-/// ```
-///
-/// ```
-pub fn disassemble(data: &[u8]) -> Result<InstructionInfo, DisassemblyError> {
+pub fn disassemble_instruction(data: &[u8]) -> Result<InstructionInfo, DisassemblyError> {
     let opcode_info = match data.len() {
         0 => return Err(DisassemblyError::MachineCodeTooShort),
         _ => match_byte_to_opcode_info(data[0])
@@ -102,7 +95,7 @@ pub fn disassemble(data: &[u8]) -> Result<InstructionInfo, DisassemblyError> {
     };
 
     // Return an error if data is too short for operands
-    if data.len() < (opcode_info.length + 1) as usize {
+    if data.len() < opcode_info.instruction_length as usize {
         return Err(DisassemblyError::MachineCodeTooShort);
     }
 
