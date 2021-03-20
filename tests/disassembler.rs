@@ -23,4 +23,16 @@ mod disassembler_tests {
         assert_eq!(sub_a_operands[0], OperandType::AccumulatorA);
         assert_eq!(sub_a_operands[1], OperandType::Immediate8(0x5));
     }
+
+    #[test]
+    fn test_bad_opcode() {
+        let bad_opcode_value_data: [u8; 1] = [0x4];
+        let disassembly = disassemble_instruction(&bad_opcode_value_data); 
+
+        // Make sure disassembling and invalid opcode results in a disassembly error
+        assert_eq!(disassembly.is_err(), true);
+
+        let disassembly = disassembly.unwrap_err();
+        assert_eq!(disassembly, DisassemblyError::InvalidOpcodeByte);
+    }
 }

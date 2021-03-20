@@ -244,6 +244,7 @@ pub enum AddressingMode {
 }
 
 /// Contains basic information about an opcode
+#[derive(Debug)]
 pub struct OpcodeInfo {
     pub opcode: Opcode,
     pub group: OpcodeGroup,
@@ -253,6 +254,7 @@ pub struct OpcodeInfo {
 }
 
 /// Containts the disassembled information about an instruction
+#[derive(Debug)]
 pub struct InstructionInfo {
     pub opcode_info: OpcodeInfo,
     pub operands: Option<Vec<OperandType>>
