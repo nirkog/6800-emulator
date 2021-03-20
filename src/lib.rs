@@ -1,2 +1,3 @@
-#[path = "disassembler/disassembler.rs"]
-pub mod disassembler;
+pub fn add(a: u32, b: u32) -> u32 {
+    a + b
+}
