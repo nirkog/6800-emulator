@@ -7,7 +7,7 @@ pub struct MemoryManager {
 }
 
 impl MemoryManager {
-    pub fn create() -> MemoryManager {
+    pub fn new() -> MemoryManager {
         let instance = MemoryManager {
             buffer: [0; BUFFER_SIZE]
         };
