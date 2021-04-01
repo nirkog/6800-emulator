@@ -100,40 +100,69 @@ impl<'a> Processor<'a> {
         self.state.set_condition_code_flag(ConditionCodeFlag::Zero, result == 0);
     }
 
-    fn emulate_subtraction(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let opcode: disassembler::Opcode = instruction_info.opcode_info.opcode;
+    fn resolve_operand(&mut self, instruction_info: &disassembler::InstructionInfo) -> u8 {
+        let mut operand_index = 1;
+        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
+        let mut operand: u8 = 0;
+        let memory_manager = self.memory_manager.unwrap();
+        
+        if operands.len() == 1 {
+            operand_index = 0;
+        }
+
+        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Direct {
+            if let disassembler::OperandType::Immediate8(addr) = operands[operand_index] {
+                operand = memory_manager.read(addr as u16, 1)[0];
+            }
+        } else if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Extended {
+            if let disassembler::OperandType::Immediate16(addr) = operands[operand_index] {
+                operand = memory_manager.read(addr, 1)[0];
+            }
+        } else if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Immediate {
+            if let disassembler::OperandType::Immediate8(value) = operands[operand_index] {
+                operand = value;
+            }
+        } else if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Indexed {
+            if let disassembler::OperandType::Immediate8(offset) = operands[operand_index] {
+                operand = memory_manager.read(self.state.index_register + (offset as u16), 1)[0];
+            }
+        }
+
+        operand
+    }
+
+    fn subtract_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
+        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
         let overflow: bool;
         let carry: bool;
-        let mut operand1: u8 = 0;
-        let mut operand2: u8 = 0;
-        let mut result: u8 = 0;
-        let mut target: Option<&mut u8> = None;
+        let operand: u8 = self.resolve_operand(instruction_info);
+        let accumulator_value: u8;
+        let result: u8;
 
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Inherent {
-            if opcode == disassembler::Opcode::SubtractBFromA {
-                operand1 = self.state.accumulator_a;
-                operand2 = self.state.accumulator_b;
-                result = self.state.accumulator_a - self.state.accumulator_b;
-                target = Some(&mut self.state.accumulator_a);
-            } 
-        } else if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Immediate {
-            //if instruction_info.operands[0] == disassembler::OperandType::AccumulatorA {
+        // Resolve the accumulator used
+        accumulator_value = match operands[0] {
+            disassembler::OperandType::AccumulatorA => self.state.accumulator_a,
+            disassembler::OperandType::AccumulatorB => self.state.accumulator_b,
+            _ => return
+        };
 
-            //}
-        }
-
-        // Write the result to the target
-        if target.is_some() {
-            *(target.unwrap()) = result;
-        }
+        // Calculate the result of the operation
+        result = accumulator_value - operand;
 
         // Set the condition code register flags
-        overflow = (((operand1 & (1 << 7)) & !(result & (1 << 7)) & !(operand1 & (1 << 7))) | (!(operand1 & (1 << 7)) & (operand2 & (1 << 7)) & (result & (1 << 7)))) > 0;
-        carry = ((!(operand1 & (1 << 7)) & (operand2 & (1 << 7))) | ((operand2 & (1 << 7)) & (result & (1 << 7))) | ((result & (1 << 7)) & (operand1 & (1 << 7)))) > 0;
+        overflow = (((accumulator_value & (1 << 7)) & !(result & (1 << 7)) & !(accumulator_value & (1 << 7))) | (!(accumulator_value & (1 << 7)) & (operand & (1 << 7)) & (result & (1 << 7)))) > 0;
+        carry = ((!(accumulator_value & (1 << 7)) & (operand & (1 << 7))) | ((operand & (1 << 7)) & (result & (1 << 7))) | ((result & (1 << 7)) & (accumulator_value & (1 << 7)))) > 0;
         self.set_negative_flag(result);
         self.set_zero_flag(result);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, overflow);
         self.state.set_condition_code_flag(ConditionCodeFlag::Carry, carry);
+
+        // Set the result to the accumulator used
+        if operands[0] == disassembler::OperandType::AccumulatorA {
+            self.state.accumulator_a = result;
+        } else {
+            self.state.accumulator_b = result;
+        }
     }
 
     pub fn emulate_instruction(&mut self) -> Result<disassembler::InstructionInfo, EmulationError> {
@@ -149,9 +178,8 @@ impl<'a> Processor<'a> {
         memory_manager = self.memory_manager.unwrap();
 
         // TODO: This has a bug. If we read from the end of the memory and the length of the final
-        // instruction is less the MAX_INSTRUCTION_SIZE, we will would cause an error in the
-        // memory manager
-        // Disassemble the next instruction
+        //       instruction is less the MAX_INSTRUCTION_SIZE, we will would cause an error in the
+        //       memory manager
         data_stream = memory_manager.read(self.state.program_counter, MAX_INSTRUCTION_LENGTH);
         instruction_info = match disassembler::disassemble_instruction(data_stream) {
             Ok(info) => info,
@@ -159,8 +187,8 @@ impl<'a> Processor<'a> {
         };
 
         // Emulate the instruction based on the opcode group
-        match instruction_info.opcode_info.group {
-            disassembler::OpcodeGroup::Subtract => self.emulate_subtraction(&instruction_info),
+        match instruction_info.opcode_info.opcode {
+            disassembler::Opcode::Subtract => self.subtract_handler(&instruction_info),
             _ => {}
         };
 
