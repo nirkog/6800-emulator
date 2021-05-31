@@ -1,6 +1,7 @@
 // The size of the memory manager buffer (2 ^ 16 because of the 16 bit address range)
 const BUFFER_SIZE: usize = 2 ^ 16;
 
+#[derive(Clone, Copy)]
 pub struct MemoryManager {
     // TODO: Make the size of the buffer variable
     buffer: [u8; BUFFER_SIZE]

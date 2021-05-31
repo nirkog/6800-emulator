@@ -46,7 +46,6 @@ pub enum Opcode {
     LoadStackPointer,
     LoadIndexRegister,
     LogicalShiftRight,
-    LogicalShiftLeft,
     Negate,
     Nop,
     Or,
@@ -97,7 +96,7 @@ pub enum OpcodeGroup {
 }
 
 /// All possible operand types
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum OperandType {
     AccumulatorA,
     AccumulatorB,
