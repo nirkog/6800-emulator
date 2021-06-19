@@ -167,7 +167,7 @@ fn match_byte_to_opcode_info(byte: u8) -> Result<OpcodeInfo, DisassemblyError> {
         0x16 => OpcodeInfo { opcode: Opcode::TransferAToB, group: OpcodeGroup::TransferRegisters, instruction_length: 1, cycles: 2, addressing_mode: AddressingMode::Inherent },
         0x17 => OpcodeInfo { opcode: Opcode::TransferBToA, group: OpcodeGroup::TransferRegisters, instruction_length: 1, cycles: 2, addressing_mode: AddressingMode::Inherent },
         0x19 => OpcodeInfo { opcode: Opcode::DecimalAdjustA, group: OpcodeGroup::TransferRegisters, instruction_length: 1, cycles: 2, addressing_mode: AddressingMode::Inherent },
-        0x1A => OpcodeInfo { opcode: Opcode::AddBToA, group: OpcodeGroup::Add, instruction_length: 1, cycles: 2, addressing_mode: AddressingMode::Inherent },
+        0x1B => OpcodeInfo { opcode: Opcode::AddBToA, group: OpcodeGroup::Add, instruction_length: 1, cycles: 2, addressing_mode: AddressingMode::Inherent },
         0x20 => OpcodeInfo { opcode: Opcode::BranchUnconditional, group: OpcodeGroup::Branch, instruction_length: 2, cycles: 4, addressing_mode: AddressingMode::Relative },
         0x22 => OpcodeInfo { opcode: Opcode::BranchIfHigherThan, group: OpcodeGroup::Branch, instruction_length: 2, cycles: 4, addressing_mode: AddressingMode::Relative },
         0x23 => OpcodeInfo { opcode: Opcode::BranchIfLowerThanEqual, group: OpcodeGroup::Branch, instruction_length: 2, cycles: 4, addressing_mode: AddressingMode::Relative },
@@ -354,7 +354,7 @@ fn match_byte_to_opcode_info(byte: u8) -> Result<OpcodeInfo, DisassemblyError> {
     Ok(opcode_info)
 }
 
-fn disassemble_operands(opcode_info: &OpcodeInfo, data: &[u8]) -> Option<Vec<OperandType>> {
+fn disassemble_operands(data: &[u8]) -> Option<Vec<OperandType>> {
     let mut operand8: OperandType = OperandType::Immediate8(0);
     let mut operand16: OperandType = OperandType::Immediate16(0);
 
@@ -586,7 +586,7 @@ pub fn disassemble_instruction(data: &[u8]) -> Result<InstructionInfo, Disassemb
         return Err(DisassemblyError::MachineCodeTooShort);
     }
 
-    let operands = disassemble_operands(&opcode_info, data); 
+    let operands = disassemble_operands(data); 
 
     Ok(InstructionInfo { opcode_info, operands })
 }
