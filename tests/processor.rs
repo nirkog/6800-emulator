@@ -34,8 +34,6 @@ mod processor_tests {
             emulation_result = processor.emulate_instruction();
             state = processor.get_state();
 
-            state.print();
-
             // Assert the instruction was emulated as excepted
             assert_eq!(emulation_result.is_err(), false);
             //assert_eq!(state.accumulator_a, results[i]);
@@ -94,9 +92,9 @@ mod processor_tests {
                 assert_eq!(true, false);
             }
 
-            if state.program_counter > 0x270 {
-                state.print();
-            }
+            // if state.program_counter > 0x270 {
+            //     state.print();
+            // }
 
             if state.program_counter == success_address {
                 break;

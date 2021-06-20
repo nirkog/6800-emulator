@@ -311,10 +311,6 @@ impl<'a> Processor<'a> {
         self.state.program_counter = self.state.program_counter.wrapping_add(instruction_info.opcode_info.instruction_length as u16);
     }
 
-    fn increment_program_counter_fixed(&mut self, offset: u16) {
-        self.state.program_counter = self.state.program_counter.wrapping_add(offset);
-    }
-
     fn subtract_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
         let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
         let operand: u8 = self.resolve_operand(instruction_info, 1).value.unwrap();
@@ -332,8 +328,6 @@ impl<'a> Processor<'a> {
 
         // Store the result in the used accumulator
         self.set_accumulator_value(operands[0], result);
-
-        self.increment_program_counter(instruction_info);
     }
 
     fn add_b_to_a_handler(&mut self) {
@@ -349,9 +343,6 @@ impl<'a> Processor<'a> {
 
         // Store the result in accumulator A
         self.state.accumulator_a = result;
-
-        // Update the program counter
-        self.state.program_counter += 1;
     }
     
     fn add_with_carry_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -371,9 +362,6 @@ impl<'a> Processor<'a> {
 
         // Store the result in the used accumulator
         self.set_accumulator_value(operands[0], result);
-
-        // Update the program counter
-        self.increment_program_counter(instruction_info);
     }
 
     fn add_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -393,8 +381,6 @@ impl<'a> Processor<'a> {
 
         // Store the result in the used accumulator
         self.set_accumulator_value(operands[0], result);
-
-        self.increment_program_counter(instruction_info);
     }
 
     fn and_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -416,11 +402,7 @@ impl<'a> Processor<'a> {
 
         // Store the result in the used accumulator
         self.set_accumulator_value(operands[0], result);
-
-        self.increment_program_counter(instruction_info);
     }
-
-    // TODO: Make a generic accumulaotr/memory arithmetic operation handler
 
     fn arithmetic_shift_left_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
         let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
@@ -449,7 +431,6 @@ impl<'a> Processor<'a> {
         self.set_zero_flag(result);
         self.state.set_condition_code_flag(ConditionCodeFlag::Carry, extra_bit);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, get_bit!(result, 7) ^ extra_bit);
-        self.increment_program_counter(instruction_info);
     }
 
     fn arithmetic_shift_right_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -479,7 +460,6 @@ impl<'a> Processor<'a> {
         self.set_zero_flag(result);
         self.state.set_condition_code_flag(ConditionCodeFlag::Carry, first_bit);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, get_bit!(result, 7) ^ first_bit);
-        self.increment_program_counter(instruction_info);
     }
 
     fn branch(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -539,10 +519,8 @@ impl<'a> Processor<'a> {
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, overflow);
     }
 
-    fn compare_accumulators_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
+    fn compare_accumulators_handler(&mut self) {
         self.compare(self.state.accumulator_a, self.state.accumulator_b);
-
-        self.increment_program_counter(instruction_info);
     }
 
     fn clear_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -561,7 +539,6 @@ impl<'a> Processor<'a> {
         self.state.set_condition_code_flag(ConditionCodeFlag::Zero, true);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, false);
         self.state.set_condition_code_flag(ConditionCodeFlag::Carry, false);
-        self.increment_program_counter(instruction_info);
     }
 
     fn compare_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -570,8 +547,6 @@ impl<'a> Processor<'a> {
         let accumulator_value = self.get_accumulator_value(operands[0]);
 
         self.compare(accumulator_value, operand);
-
-        self.increment_program_counter(instruction_info);
     }
 
     fn complement_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -598,7 +573,6 @@ impl<'a> Processor<'a> {
         self.set_zero_flag(result);
         self.state.set_condition_code_flag(ConditionCodeFlag::Carry, true);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, false);
-        self.increment_program_counter(instruction_info);
     }
 
     fn compare_index_register_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -622,7 +596,6 @@ impl<'a> Processor<'a> {
         self.set_negative_flag16(result);
         self.set_zero_flag16(result); // I'm not sure this works :)
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, overflow);
-        self.increment_program_counter(instruction_info);
     }
 
     fn decrement_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -648,14 +621,12 @@ impl<'a> Processor<'a> {
         self.set_negative_flag(result);
         self.set_zero_flag(result);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, result == 0b1111111);
-        self.increment_program_counter(instruction_info);
     }
 
     fn decrement_index_register_handler(&mut self) {
         self.state.index_register = self.state.index_register.wrapping_sub(1);
 
         self.set_zero_flag(((self.state.index_register >> 8) as u8) | ((self.state.index_register as u8) & 0xff));
-        self.increment_program_counter_fixed(1);
     }
 
     fn xor_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -677,8 +648,6 @@ impl<'a> Processor<'a> {
 
         // Store the result in the used accumulator
         self.set_accumulator_value(operands[0], result);
-
-        self.increment_program_counter(instruction_info);
     }
 
     fn increment_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -704,21 +673,16 @@ impl<'a> Processor<'a> {
         self.set_negative_flag(result);
         self.set_zero_flag(result);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, result == 0b1111111);
-        self.increment_program_counter(instruction_info);
     }
 
     fn increment_stack_pointer_handler(&mut self) {
         self.state.stack_pointer = self.state.stack_pointer.wrapping_add(1);
-
-        self.increment_program_counter_fixed(1);
     }
 
     fn increment_index_register_handler(&mut self) {
         self.state.index_register = self.state.index_register.wrapping_add(1);
 
         self.set_zero_flag(((self.state.index_register >> 8) as u8) | ((self.state.index_register as u8) & 0xff));
-
-        self.increment_program_counter_fixed(1);
     }
 
     fn jump_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -748,7 +712,6 @@ impl<'a> Processor<'a> {
         self.set_zero_flag(self.state.accumulator_a);
         self.set_negative_flag(self.state.accumulator_a);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, false);
-        self.increment_program_counter(instruction_info);
     }
 
     fn load_stack_pointer_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -774,7 +737,6 @@ impl<'a> Processor<'a> {
         self.set_zero_flag(((operand_value & 0xff00) >> 8) as u8 | (operand_value & 0xff) as u8);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, false);
 
-        self.increment_program_counter(instruction_info);
     }
 
     fn load_index_register_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -785,7 +747,6 @@ impl<'a> Processor<'a> {
         self.set_negative_flag((operand_value >> 8) as u8 );
         self.set_zero_flag(((operand_value >> 8) as u8) | (operand_value as u8));
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, false);
-        self.increment_program_counter(instruction_info);
     }
 
     fn push(&mut self, byte: u8) {
@@ -798,7 +759,6 @@ impl<'a> Processor<'a> {
 
         self.push(accumulator_value);
 
-        self.increment_program_counter(instruction_info);
     }
 
     fn pop(&mut self) -> u8 {
@@ -813,7 +773,6 @@ impl<'a> Processor<'a> {
     fn pop_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
         let value: u8 = self.pop();
         self.set_accumulator_value(instruction_info.operands.as_ref().unwrap()[0], value);
-        self.increment_program_counter(instruction_info);
     }
 
     fn transfer_a_to_b_handler(&mut self) {
@@ -822,12 +781,10 @@ impl<'a> Processor<'a> {
         self.set_negative_flag(self.state.accumulator_a);
         self.set_zero_flag(self.state.accumulator_a);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, false);
-        self.increment_program_counter_fixed(1);
     }
 
     fn transfer_a_to_condition_codes_handler(&mut self) {
         self.state.condition_code_register = self.state.accumulator_a;
-        self.increment_program_counter_fixed(1);
     }
 
     fn transfer_b_to_a_handler(&mut self) {
@@ -836,22 +793,18 @@ impl<'a> Processor<'a> {
         self.set_negative_flag(self.state.accumulator_a);
         self.set_zero_flag(self.state.accumulator_a);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, false);
-        self.increment_program_counter_fixed(1);
     }
 
     fn transfer_condition_codes_to_a_handler(&mut self) {
         self.state.accumulator_a = self.state.condition_code_register | 0b11000000;
-        self.increment_program_counter_fixed(1);
     }
 
     fn transfer_stack_pointer_to_index_register_handler(&mut self) {
         self.state.index_register = self.state.stack_pointer.wrapping_add(1);
-        self.increment_program_counter_fixed(1);
     }
 
     fn transfer_index_register_to_stack_pointer_handler(&mut self) {
         self.state.stack_pointer = self.state.index_register.wrapping_sub(1);
-        self.increment_program_counter_fixed(1);
     }
 
     fn logical_shift_right_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -881,7 +834,6 @@ impl<'a> Processor<'a> {
         self.set_zero_flag(result);
         self.state.set_condition_code_flag(ConditionCodeFlag::Carry, first_bit);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, get_bit!(result, 7) ^ first_bit);
-        self.increment_program_counter(instruction_info);
     }
 
     fn negate_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -908,7 +860,6 @@ impl<'a> Processor<'a> {
         self.set_zero_flag(result);
         self.state.set_condition_code_flag(ConditionCodeFlag::Carry, result != 0);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, result == 0x80);
-        self.increment_program_counter(instruction_info);
     }
 
     fn or_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -930,8 +881,6 @@ impl<'a> Processor<'a> {
 
         // Store the result in the used accumulator
         self.set_accumulator_value(operands[0], result);
-
-        self.increment_program_counter(instruction_info);
     }
 
     fn rotate_left_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -961,7 +910,6 @@ impl<'a> Processor<'a> {
         self.set_zero_flag(result);
         self.state.set_condition_code_flag(ConditionCodeFlag::Carry, last_bit);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, self.state.get_condition_code_flag(ConditionCodeFlag::Carry) ^ self.state.get_condition_code_flag(ConditionCodeFlag::Negative));
-        self.increment_program_counter(instruction_info);
     }
 
     fn rotate_right_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -991,7 +939,6 @@ impl<'a> Processor<'a> {
         self.set_zero_flag(result);
         self.state.set_condition_code_flag(ConditionCodeFlag::Carry, first_bit);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, self.state.get_condition_code_flag(ConditionCodeFlag::Carry) ^ self.state.get_condition_code_flag(ConditionCodeFlag::Negative));
-        self.increment_program_counter(instruction_info);
     }
 
     fn return_handler(&mut self) {
@@ -1012,8 +959,6 @@ impl<'a> Processor<'a> {
         self.set_subtraction_condition_codes(self.state.accumulator_a, self.state.accumulator_b, result);
 
         self.state.accumulator_a = result;
-
-        self.increment_program_counter_fixed(1);
     }
 
     fn subtract_with_carry_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -1027,8 +972,6 @@ impl<'a> Processor<'a> {
 
         // Calculate the result of the operation
         result = ((accumulator_value as i8).wrapping_sub(operand as i8).wrapping_sub(self.state.get_condition_code_flag(ConditionCodeFlag::Carry) as i8)) as u8;
-
-        self.increment_program_counter(instruction_info);
 
         // Set the conition codes
         self.set_subtraction_condition_codes(accumulator_value, operand, result);
@@ -1047,8 +990,6 @@ impl<'a> Processor<'a> {
         self.set_negative_flag(accumulator_value);
         self.set_zero_flag(accumulator_value);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, false);
-
-        self.increment_program_counter(instruction_info);
     }
 
     fn store_stack_pointer_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
@@ -1057,8 +998,6 @@ impl<'a> Processor<'a> {
         let low_byte: u8 = (self.state.stack_pointer & 0xff) as u8;
 
         self.write_to_memory(operand_address, &[high_byte, low_byte]);
-
-        self.increment_program_counter(instruction_info);
 
         self.set_negative_flag(high_byte);
         self.set_zero_flag(high_byte | low_byte);
@@ -1071,8 +1010,6 @@ impl<'a> Processor<'a> {
         let low_byte: u8 = (self.state.index_register & 0xff) as u8;
 
         self.write_to_memory(operand_address, &[high_byte, low_byte]);
-
-        self.increment_program_counter(instruction_info);
 
         self.set_negative_flag(high_byte);
         self.set_zero_flag(high_byte | low_byte);
@@ -1103,7 +1040,6 @@ impl<'a> Processor<'a> {
         self.set_zero_flag(result);
         self.state.set_condition_code_flag(ConditionCodeFlag::Carry, false);
         self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, false);
-        self.increment_program_counter(instruction_info);
     }
 
     fn decimal_adjust_a_handler(&mut self) {
@@ -1158,17 +1094,17 @@ impl<'a> Processor<'a> {
             disassembler::Opcode::BranchToSubroutine => self.branch_to_subroutine_handler(&instruction_info),
             disassembler::Opcode::BranchIfOverflowClear => self.branch_conditionally_handler(&instruction_info, |state| !state.get_condition_code_flag(ConditionCodeFlag::Overflow)),
             disassembler::Opcode::BranchIfOverflowSet => self.branch_conditionally_handler(&instruction_info, |state| state.get_condition_code_flag(ConditionCodeFlag::Overflow)),
-            disassembler::Opcode::CompareAAndB => self.compare_accumulators_handler(&instruction_info),
-            disassembler::Opcode::ClearCarryFlag => { self.state.set_condition_code_flag(ConditionCodeFlag::Carry, false); self.increment_program_counter_fixed(1) },
-            disassembler::Opcode::ClearInterruptMask => { self.state.set_condition_code_flag(ConditionCodeFlag::InterruptMask, false); self.increment_program_counter_fixed(1) },
+            disassembler::Opcode::CompareAAndB => self.compare_accumulators_handler(),
+            disassembler::Opcode::ClearCarryFlag => { self.state.set_condition_code_flag(ConditionCodeFlag::Carry, false) },
+            disassembler::Opcode::ClearInterruptMask => { self.state.set_condition_code_flag(ConditionCodeFlag::InterruptMask, false) },
             disassembler::Opcode::Clear=> self.clear_handler(&instruction_info),
-            disassembler::Opcode::ClearOverflowFlag => { self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, false); self.increment_program_counter_fixed(1) },
+            disassembler::Opcode::ClearOverflowFlag => { self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, false) },
             disassembler::Opcode::Compare => self.compare_handler(&instruction_info),
             disassembler::Opcode::Complement => self.complement_handler(&instruction_info),
             disassembler::Opcode::CompareIndexRegister => self.compare_index_register_handler(&instruction_info),
             disassembler::Opcode::DecimalAdjustA => self.decimal_adjust_a_handler(),
             disassembler::Opcode::Decrement => self.decrement_handler(&instruction_info),
-            disassembler::Opcode::DecrementStackPointer => { self.state.stack_pointer = self.state.stack_pointer.wrapping_sub(1); self.increment_program_counter_fixed(1) },
+            disassembler::Opcode::DecrementStackPointer => { self.state.stack_pointer = self.state.stack_pointer.wrapping_sub(1) },
             disassembler::Opcode::DecrementIndexRegister => self.decrement_index_register_handler(),
             disassembler::Opcode::Xor => self.xor_handler(&instruction_info),
             disassembler::Opcode::Increment => self.increment_handler(&instruction_info),
@@ -1181,7 +1117,7 @@ impl<'a> Processor<'a> {
             disassembler::Opcode::LoadIndexRegister => self.load_index_register_handler(&instruction_info),
             disassembler::Opcode::LogicalShiftRight => self.logical_shift_right_handler(&instruction_info),
             disassembler::Opcode::Negate => self.negate_handler(&instruction_info),
-            disassembler::Opcode::Nop => self.increment_program_counter_fixed(1),
+            disassembler::Opcode::Nop => {},
             disassembler::Opcode::Or => self.or_handler(&instruction_info),
             disassembler::Opcode::Push => self.push_handler(&instruction_info),
             disassembler::Opcode::Pop => self.pop_handler(&instruction_info),
@@ -1191,9 +1127,9 @@ impl<'a> Processor<'a> {
             disassembler::Opcode::Return => self.return_handler(),
             disassembler::Opcode::SubtractBFromA => self.subtract_accumulators_handler(),
             disassembler::Opcode::SubtractWithCarry => self.subtract_with_carry_handler(&instruction_info),
-            disassembler::Opcode::SetCarryFlag => { self.state.set_condition_code_flag(ConditionCodeFlag::Carry, true); self.state.program_counter += 1 },
-            disassembler::Opcode::SetInterruptMask => { self.state.set_condition_code_flag(ConditionCodeFlag::InterruptMask, true); self.state.program_counter += 1 },
-            disassembler::Opcode::SetOverflowFlag => { self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, true); self.state.program_counter += 1 },
+            disassembler::Opcode::SetCarryFlag => { self.state.set_condition_code_flag(ConditionCodeFlag::Carry, true) },
+            disassembler::Opcode::SetInterruptMask => { self.state.set_condition_code_flag(ConditionCodeFlag::InterruptMask, true) },
+            disassembler::Opcode::SetOverflowFlag => { self.state.set_condition_code_flag(ConditionCodeFlag::Overflow, true) },
             disassembler::Opcode::StoreAccumulator => self.store_accumulator_handler(&instruction_info),
             disassembler::Opcode::StoreStackPointer => self.store_stack_pointer_handler(&instruction_info),
             disassembler::Opcode::StoreIndexRegister => self.store_index_register_handler(&instruction_info),
@@ -1209,6 +1145,12 @@ impl<'a> Processor<'a> {
             // TODO: Wait for interrupt
             _ => {}
         };
+
+        // For most instructions (not branch or jump instructions), increment PC according to the
+        // instruction length
+        if instruction_info.opcode_info.increment_program_counter { 
+            self.increment_program_counter(&instruction_info);
+        }
 
         Ok(instruction_info)
     }
