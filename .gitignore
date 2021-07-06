@@ -8,3 +8,6 @@
 #/target
 Cargo.lock
 .*.sw*
+
+/tests/test.s19
+/tests/test.bin

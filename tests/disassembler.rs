@@ -13,8 +13,7 @@ mod disassembler_tests {
         let sub_a_immediate_disassembly = sub_a_immediate_disassembly.unwrap();
 
         // Test the instruction was disassembled correctly
-        assert_eq!(sub_a_immediate_disassembly.opcode_info.opcode, Opcode::SubstractAImmediate);
-        assert_eq!(sub_a_immediate_disassembly.opcode_info.group, OpcodeGroup::Substract);
+        assert_eq!(sub_a_immediate_disassembly.opcode_info.opcode, Opcode::Subtract);
         assert_eq!(sub_a_immediate_disassembly.opcode_info.instruction_length, 2);
         assert_eq!(sub_a_immediate_disassembly.opcode_info.cycles, 2);
         assert_ne!(sub_a_immediate_disassembly.operands, None);

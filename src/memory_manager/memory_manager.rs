@@ -1,13 +1,14 @@
 // The size of the memory manager buffer (2 ^ 16 because of the 16 bit address range)
-const BUFFER_SIZE: usize = 2 ^ 16;
+const BUFFER_SIZE: usize = 65536;
 
+#[derive(Clone, Copy)]
 pub struct MemoryManager {
     // TODO: Make the size of the buffer variable
     buffer: [u8; BUFFER_SIZE]
 }
 
 impl MemoryManager {
-    pub fn create() -> MemoryManager {
+    pub fn new() -> MemoryManager {
         let instance = MemoryManager {
             buffer: [0; BUFFER_SIZE]
         };
