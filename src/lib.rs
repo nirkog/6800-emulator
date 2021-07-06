@@ -1,3 +1,8 @@
-pub fn add(a: u32, b: u32) -> u32 {
-    a + b
-}
+#[path = "disassembler/disassembler.rs"]
+pub mod disassembler;
+
+#[path = "memory_manager/memory_manager.rs"]
+pub mod memory_manager;
+
+#[path = "processor/processor.rs"]
+pub mod processor;
