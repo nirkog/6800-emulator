@@ -288,6 +288,33 @@ impl<'a> Processor<'a> {
         self.state.set_condition_code_flag(ConditionCodeFlag::HalfCarry, half_carry);
     }
 
+    /// Handle operations which can be performed on both accumulators and memory
+    /// Return (operation_result, original_value)
+    fn handle_memory_accumulator_operation<F>(&mut self, instruction_info: &disassembler::InstructionInfo, operation: F) -> (u8, u8) where
+        F: FnOnce(u8) -> u8  {
+        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
+        let result: u8;
+        let original_value: u8;
+        let mut memory_access_details: AccessDetails = AccessDetails { address: None, value: None, value16: None };
+
+        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
+            original_value = self.get_accumulator_value(operands[0]);
+        } else {
+            memory_access_details = self.resolve_operand(instruction_info, 0);
+            original_value = memory_access_details.value.unwrap();
+        }
+
+        result = operation(original_value);
+
+        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
+            self.set_accumulator_value(operands[0], result);
+        } else {
+            self.write_to_memory(memory_access_details.address.unwrap(), &[result]);
+        }
+
+        (result, original_value)
+    }
+
     fn set_subtraction_condition_codes(&mut self, accumulator: u8, operand: u8, result: u8) {
         let overflow: bool;
         let carry: bool;
@@ -405,27 +432,8 @@ impl<'a> Processor<'a> {
     }
 
     fn arithmetic_shift_left_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
-        let memory_access_details: AccessDetails;
-        let accumulator_value: u8;
-        let result: u8;
-        let extra_bit: bool;
-
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
-            accumulator_value = self.get_accumulator_value(operands[0]);
-
-            result = accumulator_value << 1;
-            extra_bit = get_bit!(accumulator_value, 7);
-
-            self.set_accumulator_value(operands[0], result);
-        } else {
-            memory_access_details = self.resolve_operand(instruction_info, 0);
-
-            result = memory_access_details.value.unwrap() << 1;
-            extra_bit = get_bit!(memory_access_details.value.unwrap(), 7);
-
-            self.write_to_memory(memory_access_details.address.unwrap(), &[result]);
-        }
+        let (result, original_value) = self.handle_memory_accumulator_operation(instruction_info, |x| x << 1);
+        let extra_bit = get_bit!(original_value, 7);
 
         self.set_negative_flag(result);
         self.set_zero_flag(result);
@@ -434,27 +442,8 @@ impl<'a> Processor<'a> {
     }
 
     fn arithmetic_shift_right_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
-        let memory_access_details: AccessDetails;
-        let accumulator_value: u8;
-        let result: u8;
-        let first_bit: bool;
-
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
-            accumulator_value = self.get_accumulator_value(operands[0]);
-
-            result = (accumulator_value >> 1) | (accumulator_value & (1 << 7));
-            first_bit = get_bit!(accumulator_value, 0);
-
-            self.set_accumulator_value(operands[0], result);
-        } else {
-            memory_access_details = self.resolve_operand(instruction_info, 0);
-
-            result = (memory_access_details.value.unwrap() << 1) | (memory_access_details.value.unwrap() & (1 << 7));
-            first_bit = get_bit!(memory_access_details.value.unwrap(), 0);
-
-            self.write_to_memory(memory_access_details.address.unwrap(), &[result]);
-        }
+        let (result, original_value) = self.handle_memory_accumulator_operation(instruction_info, |x| (x >> 1) | (x & (1 << 7)));
+        let first_bit = get_bit!(original_value, 0);
 
         self.set_negative_flag(result);
         self.set_zero_flag(result);
@@ -524,16 +513,7 @@ impl<'a> Processor<'a> {
     }
 
     fn clear_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
-        let memory_access_details: AccessDetails;
-
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
-            self.set_accumulator_value(operands[0], 0);
-        } else {
-            memory_access_details = self.resolve_operand(instruction_info, 0);
-
-            self.write_to_memory(memory_access_details.address.unwrap(), &[0]);
-        }
+        self.handle_memory_accumulator_operation(instruction_info, |_x| 0);
 
         self.state.set_condition_code_flag(ConditionCodeFlag::Negative, false);
         self.state.set_condition_code_flag(ConditionCodeFlag::Zero, true);
@@ -550,24 +530,7 @@ impl<'a> Processor<'a> {
     }
 
     fn complement_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
-        let memory_access_details: AccessDetails;
-        let accumulator_value: u8;
-        let result: u8;
-
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
-            accumulator_value = self.get_accumulator_value(operands[0]);
-
-            result = !accumulator_value;
-
-            self.set_accumulator_value(operands[0], result);
-        } else {
-            memory_access_details = self.resolve_operand(instruction_info, 0);
-
-            result = !memory_access_details.value.unwrap();
-
-            self.write_to_memory(memory_access_details.address.unwrap(), &[result]);
-        }
+        let (result, _original_value) = self.handle_memory_accumulator_operation(instruction_info, |x| !x);
 
         self.set_negative_flag(result);
         self.set_zero_flag(result);
@@ -599,24 +562,7 @@ impl<'a> Processor<'a> {
     }
 
     fn decrement_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
-        let memory_access_details: AccessDetails;
-        let accumulator_value: u8;
-        let result: u8;
-
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
-            accumulator_value = self.get_accumulator_value(operands[0]);
-
-            result = accumulator_value.wrapping_sub(1);
-
-            self.set_accumulator_value(operands[0], result);
-        } else {
-            memory_access_details = self.resolve_operand(instruction_info, 0);
-
-            result = memory_access_details.value.unwrap().wrapping_sub(1);
-
-            self.write_to_memory(memory_access_details.address.unwrap(), &[result]);
-        }
+        let (result, _original_value) = self.handle_memory_accumulator_operation(instruction_info, |x| x.wrapping_sub(1));
 
         self.set_negative_flag(result);
         self.set_zero_flag(result);
@@ -651,24 +597,7 @@ impl<'a> Processor<'a> {
     }
 
     fn increment_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
-        let memory_access_details: AccessDetails;
-        let accumulator_value: u8;
-        let result: u8;
-
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
-            accumulator_value = self.get_accumulator_value(operands[0]);
-
-            result = accumulator_value.wrapping_add(1);
-
-            self.set_accumulator_value(operands[0], result);
-        } else {
-            memory_access_details = self.resolve_operand(instruction_info, 0);
-
-            result = memory_access_details.value.unwrap().wrapping_add(1);
-
-            self.write_to_memory(memory_access_details.address.unwrap(), &[result]);
-        }
+        let (result, _original_value) = self.handle_memory_accumulator_operation(instruction_info, |x| x.wrapping_add(1));
 
         self.set_negative_flag(result);
         self.set_zero_flag(result);
@@ -808,27 +737,8 @@ impl<'a> Processor<'a> {
     }
 
     fn logical_shift_right_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
-        let memory_access_details: AccessDetails;
-        let accumulator_value: u8;
-        let result: u8;
-        let first_bit: bool;
-
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
-            accumulator_value = self.get_accumulator_value(operands[0]);
-
-            result = (accumulator_value >> 1) & 0b1111111;
-            first_bit = get_bit!(accumulator_value, 0);
-
-            self.set_accumulator_value(operands[0], result);
-        } else {
-            memory_access_details = self.resolve_operand(instruction_info, 0);
-
-            result = (memory_access_details.value.unwrap() << 1)  & 0b1111111;
-            first_bit = get_bit!(memory_access_details.value.unwrap(), 0);
-
-            self.write_to_memory(memory_access_details.address.unwrap(), &[result]);
-        }
+        let (result, original_value) = self.handle_memory_accumulator_operation(instruction_info, |x| (x >> 1) & 0b1111111);
+        let first_bit = get_bit!(original_value, 0);
 
         self.set_negative_flag(result);
         self.set_zero_flag(result);
@@ -837,24 +747,7 @@ impl<'a> Processor<'a> {
     }
 
     fn negate_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
-        let memory_access_details: AccessDetails;
-        let accumulator_value: u8;
-        let result: u8;
-
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
-            accumulator_value = self.get_accumulator_value(operands[0]);
-
-            result = (-(accumulator_value as i8)) as u8;
-
-            self.set_accumulator_value(operands[0], result);
-        } else {
-            memory_access_details = self.resolve_operand(instruction_info, 0);
-
-            result = (-(memory_access_details.value.unwrap() as i8)) as u8;
-
-            self.write_to_memory(memory_access_details.address.unwrap(), &[result]);
-        }
+        let (result, _original_value) = self.handle_memory_accumulator_operation(instruction_info, |x| (-(x as i8)) as u8);
 
         self.set_negative_flag(result);
         self.set_zero_flag(result);
@@ -884,27 +777,9 @@ impl<'a> Processor<'a> {
     }
 
     fn rotate_left_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
-        let memory_access_details: AccessDetails;
-        let accumulator_value: u8;
-        let result: u8;
-        let last_bit: bool;
-
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
-            accumulator_value = self.get_accumulator_value(operands[0]);
-
-            last_bit = (accumulator_value >> 7) == 1;
-            result = (accumulator_value << 1) | (self.state.get_condition_code_flag(ConditionCodeFlag::Carry) as u8);
-
-            self.set_accumulator_value(operands[0], result);
-        } else {
-            memory_access_details = self.resolve_operand(instruction_info, 0);
-
-            last_bit = (memory_access_details.value.unwrap() >> 7) == 1;
-            result = (memory_access_details.value.unwrap() << 1) | (self.state.get_condition_code_flag(ConditionCodeFlag::Carry) as u8);
-
-            self.write_to_memory(memory_access_details.address.unwrap(), &[result]);
-        }
+        let carry = self.state.get_condition_code_flag(ConditionCodeFlag::Carry) as u8;
+        let (result, original_value) = self.handle_memory_accumulator_operation(instruction_info, |x| (x << 1) | carry);
+        let last_bit = get_bit!(original_value, 7);
 
         self.set_negative_flag(result);
         self.set_zero_flag(result);
@@ -913,27 +788,9 @@ impl<'a> Processor<'a> {
     }
 
     fn rotate_right_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
-        let memory_access_details: AccessDetails;
-        let accumulator_value: u8;
-        let result: u8;
-        let first_bit: bool;
-
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
-            accumulator_value = self.get_accumulator_value(operands[0]);
-
-            first_bit = (accumulator_value & 1) == 1;
-            result = (accumulator_value >> 1) | ((self.state.get_condition_code_flag(ConditionCodeFlag::Carry) as u8) << 7);
-
-            self.set_accumulator_value(operands[0], result);
-        } else {
-            memory_access_details = self.resolve_operand(instruction_info, 0);
-
-            first_bit = (memory_access_details.value.unwrap() & 1) == 1;
-            result = (memory_access_details.value.unwrap() >> 1) | ((self.state.get_condition_code_flag(ConditionCodeFlag::Carry) as u8) << 7);
-
-            self.write_to_memory(memory_access_details.address.unwrap(), &[result]);
-        }
+        let carry = self.state.get_condition_code_flag(ConditionCodeFlag::Carry) as u8;
+        let (result, original_value) = self.handle_memory_accumulator_operation(instruction_info, |x| (x >> 1) | (carry << 7));
+        let first_bit = get_bit!(original_value, 0);
 
         self.set_negative_flag(result);
         self.set_zero_flag(result);
@@ -1017,24 +874,7 @@ impl<'a> Processor<'a> {
     }
 
     fn test_handler(&mut self, instruction_info: &disassembler::InstructionInfo) {
-        let operands: &Vec<disassembler::OperandType> = instruction_info.operands.as_ref().unwrap();
-        let memory_access_details: AccessDetails;
-        let accumulator_value: u8;
-        let result: u8;
-
-        if instruction_info.opcode_info.addressing_mode == disassembler::AddressingMode::Accumulator {
-            accumulator_value = self.get_accumulator_value(operands[0]);
-
-            result = accumulator_value;
-
-            self.set_accumulator_value(operands[0], result);
-        } else {
-            memory_access_details = self.resolve_operand(instruction_info, 0);
-
-            result = memory_access_details.value.unwrap();
-
-            self.write_to_memory(memory_access_details.address.unwrap(), &[result]);
-        }
+        let (result, _original_value) = self.handle_memory_accumulator_operation(instruction_info, |x| x);
 
         self.set_negative_flag(result);
         self.set_zero_flag(result);

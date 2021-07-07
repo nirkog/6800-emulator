@@ -92,10 +92,6 @@ mod processor_tests {
                 assert_eq!(true, false);
             }
 
-            // if state.program_counter > 0x270 {
-            //     state.print();
-            // }
-
             if state.program_counter == success_address {
                 break;
             }
